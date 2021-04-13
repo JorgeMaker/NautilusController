@@ -1,3 +1,7 @@
+<p align="center">
+  <img  src="https://github.com/JorgeMaker/NautilusController/blob/main/docs/nautiluslogo.png?raw=true">
+</p>
+
 # Nautilus Brushless Controller
 
 The Nautilus Controller, a project still under development will to turn a hobby brushless motors into a robotic servo actuator.  for precise control of 3-phase brushless motors. 
