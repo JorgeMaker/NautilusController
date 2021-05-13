@@ -4,15 +4,19 @@
 
 ## Nautilus Brushless Controller
 
-The Nautilus Controller, a project still under development will to turn a hobby brushless motors into a robotic servo actuator.  for precise control of 3-phase brushless motors. 
+The Nautilus Controller, a project still under development will to turn a hobby brushless motors into a robotic servo actuator.  for precise control of 3-phase brushless motors.
 
-The board   will integrate the necessary drive electronics, a high performance SMT32 microcontroller, an absolute magnetic encoder, and a high-speed data interface in a compact board that cab be attached at the rear part of a BLDC motor. 
+The board   will integrate the necessary drive electronics, a high performance SMT32 microcontroller, an absolute magnetic encoder, and a high-speed data interface in a compact board that cab be attached at the rear part of a BLDC motor.
 
-Some features of the project under deveopment are:
+<p align="center">
+  <img  src="https://github.com/JorgeMaker/NautilusController/blob/main/docs/NautilusBoard.jpg?raw=true">
+</p>
+
+Some features of the project under development are:
 
 - Compact size of 48x48 mm 4-layer PCB
 - SMT32F405RGT6 as MCU
-- Uses the DRV8305 as gate driver. 
+- Uses the DRV8305 as gate driver.
 - Absolute 14 bits magnetic encoder AS5048A with SPI communications
 - Power Connector: 2x XT30PW-F
 - Dual connector of CAN bus interface
@@ -26,7 +30,3 @@ It will be able to operate in in torque, velocity or position modes, using Field
 The ultimate goal of the controller under development is to be able to develop A ROS actuator that can be used to build dynamic robots like, as for examples, a robot arm or a quadruped robot.
 
 As previously stated, this project is still in the very early stages of development, under construction and continuous change so take it in consideration if you decide to reuse some of the provided information.
-
-
-
-
