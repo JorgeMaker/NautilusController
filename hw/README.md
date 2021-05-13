@@ -4,5 +4,5 @@ In this folder you can find the schematic in pdf format to reproduce in your des
 
 
 <p align="center">
-  <img  src="https://github.com/JorgeMaker/NautilusController/blob/main/docs/NautilusLayout.jpg?raw=true">
+  <img  src="https://github.com/JorgeMaker/NautilusController/blob/main/docs/NautilusTwoSidedLayout.jpg?raw=true">
 </p>
