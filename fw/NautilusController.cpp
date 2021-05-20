@@ -46,7 +46,8 @@
 //    GLOBAL VARIABLES
 //////////////////////////////////////
 double timeStamp = 0;
-
+const float  MAX_TEMP = 80 ; //Maximum temperature [°C]
+float temperature;
 MagneticSensorSPIConfig_s AS5047A_SPI_Config{
     .spi_mode = SPI_MODE1,
     .clock_speed = 10000000,
@@ -62,6 +63,9 @@ SPIClass spiConnectionDRV(MOSI_DRV, MISO_DRV, CLK_DRV);
 // BLDC motor & driver instance
 BLDCMotor motor = BLDCMotor(11);
 BLDCDriver6PWM driver = BLDCDriver6PWM (INH_A, INL_A, INH_B, INL_B, INH_C, INL_C, ENA_GATE);
+//instantiate commander
+Commander commander = Commander(Serial4);
+void doMotor(char* cmd){commander.motor(&motor, cmd);}
 //////////////////////////////////////
 //    UTILITY FUNCTIONS
 //////////////////////////////////////
@@ -135,26 +139,7 @@ void drv8305Initialization()
   Serial4.println("DRIVER: enGate Enabled");
   digitalWrite(ENA_GATE, HIGH);
 }
-// utility function enabling serial communication the user
-String serialReceiveUserCommand() {
-  // a string to hold incoming data
-  static String received_chars;
-  String command = "";
-  while (Serial4.available()) {
-    // get the new byte:
-    char inChar = (char)Serial4.read();
-    // add it to the string buffer:
-    received_chars += inChar;
-    // end of user input
-    if (inChar == '\n') {
-      // execute the user command
-      command = received_chars;
-      // reset the command buffer 
-      received_chars = "";
-    }
-  }
-  return command;
-}
+
 void setup(){
     // Serial communications initialization
     Serial4.begin(115200);
@@ -167,8 +152,8 @@ void setup(){
     pinMode(nMFAULT, INPUT);
     // Sensor Configuration & inicialization 
     sensor.init(&spiConnectionEncoder);
-    sensor.initAbsoluteZero();
-    sensor.initRelativeZero();
+    //sensor.initAbsoluteZero();
+    //sensor.initRelativeZero();
     // link the motor to the sensor
     motor.linkSensor(&sensor);
     // DRV8305 Inicialization
@@ -186,13 +171,13 @@ void setup(){
     // choose FOC modulation
     motor.foc_modulation = FOCModulationType::SpaceVectorPWM;
     // set control loop type to be used
-    motor.controller = ControlType::angle;
+    motor.controller = MotionControlType::angle;
     // contoller configuration based on the control type 
     motor.PID_velocity.P = 0.2;
     motor.PID_velocity.I = 20;
     motor.PID_velocity.D = 0;
     // default voltage_power_supply
-    motor.voltage_limit = 6;
+    motor.voltage_limit = 11;
     // velocity low pass filtering time constant
     motor.LPF_velocity.Tf = 0.2;
     // angle loop controller
@@ -207,6 +192,8 @@ void setup(){
     motor.initFOC();
     // set the inital target value
     motor.target = 0;
+    // define the motor id
+    commander.add('M', doMotor, "motor");
     Serial4.println("*************************************");
     bootLedIndicator();
     _delay(1000);
@@ -217,12 +204,20 @@ void loop(){
     // iterative setting FOC phase voltage
     motor.loopFOC();
     motor.move();
-    if ((millis() - timeStamp) > 40){
+    motor.monitor();
+    if ((millis() - timeStamp) > 250){
         timeStamp = millis();
         digitalToggle(BLUE_LED);
-        motor.monitor();
+        temperature = readTemperature();
+        if(temperature > MAX_TEMP){
+          digitalWrite(ENA_GATE, LOW);
+          while(true){
+            Serial4.println("NautilusBoard Dissabled. Please stop and reboot after cooling");
+            bootLedIndicator();
+          }
+        }
     }
-    digitalToggle(LOOP_PIN);
     // user communication
-    motor.command(serialReceiveUserCommand());
+    commander.run();
+    digitalToggle(LOOP_PIN);
 }
