@@ -1,11 +1,9 @@
-
+/*
 #include <SimpleFOC.h>
 #include "STM32F405RTGBorad.h"
 #include <SimpleCanFacility.h>
 #include <NautilusCANMessage.h>
 #include <TrapezoidalPlanner.h>
-#include <Adafruit_NeoPixel.h>
-#include <TemperatureSensor.h>
 
 ///    SPI 2 (AS5048A)
 #define MOSI_DRV  PA7  // Blue
@@ -29,17 +27,10 @@
 
 #define ENA_GATE PC3
 
-#define SENSE_A PB1
-#define SENSE_B PB0
-#define SENSE_C PC5
-
 #define BLUE_LED PB2
 #define LOOP_PIN PC13
 
-#define RGB_PIN PB5
-#define LED_COUNT  1
-
-#define NUM_OF_BLINKS 16
+#define NUM_OF_BLINKS 15
 
 void bootLedIndicator()
 {
@@ -52,38 +43,6 @@ void bootLedIndicator()
     counter--;
   }
 }
-
-Adafruit_NeoPixel regIndicator = Adafruit_NeoPixel(LED_COUNT, RGB_PIN, NEO_GRB + NEO_KHZ800);
-bool regIndicatorStatus = false;
-
-void initRGBIndicator(){
-    regIndicator.begin();
-    regIndicator.setBrightness(20);
-} 
-void showRGBColor(int red, int green, int blue){
-    regIndicator.setPixelColor(0, regIndicator.Color(red, green, blue));
-    regIndicatorStatus = true;
-    regIndicator.show();
-}
-
-void setRGBColor(int red, int green, int blue){
-    regIndicator.setPixelColor(0, regIndicator.Color(red, green, blue));
-}
-
- void togggleRGB(){
-    if (regIndicatorStatus){
-      regIndicator.setBrightness(0);
-      regIndicator.show();
-    }
-    else{
-      regIndicator.setBrightness(15);
-      regIndicator.setPixelColor(0, regIndicator.Color(255, 0, 255));
-      regIndicator.show();
-    }
-    regIndicatorStatus = !regIndicatorStatus;
- }
-
-
 
 SimpleCanFacility canFacility;
 NautilusCANMesage nautilusMsg;
@@ -149,13 +108,9 @@ BLDCMotor motor = BLDCMotor(7);
 // BLDCDriver3PWM driver = BLDCDriver3PWM (INH_A,INH_B, INH_C, ENA_GATE);
 BLDCDriver6PWM driver = BLDCDriver6PWM(INH_A, INL_A, INH_B, INL_B, INH_C, INL_C, ENA_GATE);
 
-LowsideCurrentSense current_sense = LowsideCurrentSense(0.007f, 12.22f, SENSE_A, SENSE_B, _NC);
-
 Commander commander = Commander(Serial);
 
 TrapezoidalPlanner planner(10);
-
-TemperatureSensor temperature;
 
 void doPlanner(char *cmd){
   planner.doTrapezoidalPlannerCommand(cmd);
@@ -167,7 +122,7 @@ void doMotor(char *cmd){
 
 void configureNuathilus(){
   // control loop type and torque mode
-  motor.torque_controller = TorqueControlType::foc_current;
+  motor.torque_controller = TorqueControlType::voltage;
   motor.controller = MotionControlType::velocity_openloop;
   motor.motion_downsample = 0.0;
   driver.voltage_power_supply = 22;
@@ -212,7 +167,7 @@ void configureNuathilus(){
   
   
   // Limits
-  motor.velocity_limit = 30.0;
+  motor.velocity_limit = 20.0;
   motor.voltage_limit = 1;
 
   // motor.current_limit = 2.0;
@@ -227,13 +182,6 @@ void setup(){
 
   bootLedIndicator();
   Serial.begin(115200);
-
-  initRGBIndicator();
-  setRGBColor(255,0,0);
-
-  // I2C for temperature Sensor
-  Wire.begin(PB7, PB6);
-
   Serial.println("Starting Motor configuration ....");
 
   canFacility.init(Kbit250, NormalCAN);
@@ -259,12 +207,6 @@ void setup(){
   spiConnectionDRV.setClockDivider(SPI_CLOCK_DIV8);
   drv8305Initialization();
 
-
-  // Configure and init Temperature Sensor
-  temperature.init();
-
-  ///   TODO TODO TODO
-  ///   RESOLVE HW ISSUE
   // link the motor to the sensor
   //motor.linkSensor(&sensor);
 
@@ -282,33 +224,17 @@ void setup(){
   commander.add('G', doPlanner, "Motion Planner");
 
   motor.target = 10;
- 
-  Serial.println("LCS ready to be linked ...");
-  current_sense.linkDriver(&driver);
-  Serial.println("LCS ready just linked ...");
-  current_sense.init();
-  Serial.println("LCS ininitiated ...");
-  // link the current sense to the motor
-  motor.linkCurrentSense(&current_sense);
-  Serial.println("LCS lined with motor ...");
-  // skip alignment
-  current_sense.skip_align = true;
-  //current_sense.driverAlign();
-
   // initialize motor
   motor.init();
   motor.initFOC();
-
   Serial.println("Motor ready.");
   _delay(1000);
 }
 
-float value;
-
-void sendTemperatureByCanBus(){
+void senAngleByCanBus(){
   nautilusMsg.setEncodeMessageID(ANGLE_STATE, FLOAT, 5, 0, 10);
-  float temp = temperature.readTemperatureC();
-  nautilusMsg.setFloatPayload(temp);
+  sensor.update();
+  nautilusMsg.setFloatPayload(sensor.getAngle());
   canFacility.send(nautilusMsg.toCanMessage());
 }
 
@@ -319,14 +245,13 @@ int entity = 10;
 void attendCanBusCommands(){
   int receivedMessages = canFacility.receiveCanMessages(rxMsgBuff);
   if (receivedMessages > 0){
-    togggleRGB();
-    //digitalToggle(BLUE_LED);
     for (int index = 0; index < receivedMessages; index++){
       NautilusCANMesage nautilusMsg = rxMsgBuff[index];
       if ((nautilusMsg.getNodeID() == nodeID) & (nautilusMsg.getEntity() == entity)){
         if (nautilusMsg.getCommandID() == TARGET_CMD){
           motor.target = nautilusMsg.getFloatPayload();
           motor.move(motor.target);
+          digitalToggle(BLUE_LED);
         }
       }
     }
@@ -338,16 +263,17 @@ void loop()
 
   if ((millis() - lastTime) > 100){
     digitalToggle(BLUE_LED);
-    sendTemperatureByCanBus();
+    //senAngleByCanBus();
     lastTime = millis();
   }
   
   motor.loopFOC();
   motor.move();
   commander.run();
-  planner.runPlannerOnTick();
+  //planner.runPlannerOnTick();
   motor.monitor();
-  attendCanBusCommands();
+  //attendCanBusCommands();
   
   digitalToggle(LOOP_PIN);
 }
+*/
