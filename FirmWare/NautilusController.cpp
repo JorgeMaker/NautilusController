@@ -149,7 +149,7 @@ BLDCMotor motor = BLDCMotor(7);
 // BLDCDriver3PWM driver = BLDCDriver3PWM (INH_A,INH_B, INH_C, ENA_GATE);
 BLDCDriver6PWM driver = BLDCDriver6PWM(INH_A, INL_A, INH_B, INL_B, INH_C, INL_C, ENA_GATE);
 
-LowsideCurrentSense current_sense = LowsideCurrentSense(0.007f, 12.22f, SENSE_A, SENSE_B, _NC);
+LowsideCurrentSense current_sense = LowsideCurrentSense(0.007f, 12.22f, SENSE_A, SENSE_B, SENSE_C);
 
 Commander commander = Commander(Serial);
 
